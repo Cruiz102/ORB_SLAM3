@@ -1,0 +1,17 @@
+# ROS2 Parameters for ORB-SLAM3 Monocular Node
+
+orb_slam3_mono:
+  ros__parameters:
+    # Topic names
+    image_topic: "camera/image_raw"
+    camera_info_topic: "camera/camera_info"
+    pose_topic: "orb_slam3/camera_pose"
+    path_topic: "orb_slam3/camera_path"
+    
+    # Frame IDs
+    world_frame_id: "world"
+    camera_frame_id: "camera"
+    
+    # Publisher settings
+    queue_size: 10
+    publish_tf: true
