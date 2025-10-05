@@ -1,0 +1,48 @@
+{
+    "version": "2.0.0",
+    "tasks": [
+        {
+            "label": "build mono_tum",
+            "type": "shell",
+            "command": "${workspaceFolder}/Examples/Monocular/build.sh",
+            "options": {
+                "cwd": "${workspaceFolder}/Examples/Monocular"
+            },
+            "group": {
+                "kind": "build",
+                "isDefault": true
+            },
+            "presentation": {
+                "reveal": "always",
+                "panel": "shared"
+            },
+            "problemMatcher": ["$gcc"]
+        },
+        {
+            "label": "build main project",
+            "type": "shell",
+            "command": "${workspaceFolder}/build.sh",
+            "options": {
+                "cwd": "${workspaceFolder}"
+            },
+            "group": "build",
+            "presentation": {
+                "reveal": "always",
+                "panel": "shared"
+            },
+            "problemMatcher": ["$gcc"]
+        },
+        {
+            "label": "clean mono_tum",
+            "type": "shell",
+            "command": "rm -rf build mono_tum",
+            "options": {
+                "cwd": "${workspaceFolder}/Examples/Monocular"
+            },
+            "presentation": {
+                "reveal": "always",
+                "panel": "shared"
+            }
+        }
+    ]
+}

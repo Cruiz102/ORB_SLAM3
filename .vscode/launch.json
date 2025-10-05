@@ -1,0 +1,30 @@
+{
+    "version": "0.2.0",
+    "configurations": [
+        {
+            "name": "Debug mono_tum",
+            "type": "cppdbg",
+            "request": "launch",
+            "program": "${workspaceFolder}/Examples/Monocular/mono_tum",
+            "args": [
+                "${workspaceFolder}/Vocabulary/ORBvoc.txt",
+                "${workspaceFolder}/Examples/Monocular/TUM1.yaml",
+                "/path/to/dataset"
+            ],
+            "stopAtEntry": false,
+            "cwd": "${workspaceFolder}/Examples/Monocular",
+            "environment": [],
+            "externalConsole": false,
+            "MIMode": "gdb",
+            "setupCommands": [
+                {
+                    "description": "Enable pretty-printing for gdb",
+                    "text": "-enable-pretty-printing",
+                    "ignoreFailures": true
+                }
+            ],
+            "preLaunchTask": "build mono_tum",
+            "miDebuggerPath": "/usr/bin/gdb"
+        }
+    ]
+}

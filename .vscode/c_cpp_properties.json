@@ -1,0 +1,28 @@
+{
+    "configurations": [
+        {
+            "name": "Linux",
+            "includePath": [
+                "${workspaceFolder}/**",
+                "${workspaceFolder}/include",
+                "${workspaceFolder}/include/CameraModels",
+                "${workspaceFolder}/Thirdparty/Sophus",
+                "${workspaceFolder}/Thirdparty/DBoW2",
+                "${workspaceFolder}/Thirdparty/g2o",
+                "/usr/include/eigen3",
+                "/usr/include/opencv4",
+                "/usr/local/include/pangolin"
+            ],
+            "defines": [
+                "COMPILEDWITHC14"
+            ],
+            "compilerPath": "/usr/bin/g++",
+            "cStandard": "c11",
+            "cppStandard": "c++14",
+            "intelliSenseMode": "linux-gcc-x64",
+            "compileCommands": "${workspaceFolder}/build/compile_commands.json",
+            "configurationProvider": "ms-vscode.cmake-tools"
+        }
+    ],
+    "version": 4
+}
