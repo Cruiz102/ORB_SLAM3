@@ -1,205 +1,369 @@
-# ORB-SLAM3 ROS2 Wrapper
+# ORB_SLAM3 ROS2 Package
 
-ROS2 wrapper for ORB-SLAM3 with monocular camera support.
-
-## Features
-
-- **Monocular SLAM**: Single camera support
-- **ROS2 Publishers**:
-  - Camera pose (`geometry_msgs/PoseStamped`)
-  - Camera trajectory path (`nav_msgs/Path`)
-  - TF transforms (camera pose in world frame)
-- **Automatic trajectory saving** on shutdown
-- **Webcam launch file** for easy testing
+This document provides complete step-by-step instructions to build and run the ORB_SLAM3 ROS2 package.
 
 ## Prerequisites
 
-### ROS2 Installation
-Tested with **ROS2 Humble** on Ubuntu 22.04.
+### System Requirements
+- Ubuntu 22.04 or later
+- ROS2 Jazzy installed
+- CMake 3.5 or higher
+- GCC 7.0 or higher
+- Eigen3
+- OpenCV 4.x
+- Pangolin (available through ROS2 installation)
 
-Install ROS2 if not already installed:
+### ROS2 Dependencies
 ```bash
-# Follow: https://docs.ros.org/en/humble/Installation.html
+sudo apt update
+sudo apt install ros-jazzy-desktop-full
+sudo apt install ros-jazzy-cv-bridge ros-jazzy-tf2-ros ros-jazzy-tf2-geometry-msgs
+sudo apt install ros-jazzy-sensor-msgs ros-jazzy-geometry-msgs ros-jazzy-nav-msgs
 ```
 
-### Required ROS2 Packages
+### Development Tools
 ```bash
-sudo apt install ros-humble-cv-bridge ros-humble-image-transport \
-                 ros-humble-message-filters ros-humble-tf2-ros \
-                 ros-humble-usb-cam
+sudo apt install build-essential cmake git
+sudo apt install libeigen3-dev libopencv-dev
 ```
 
-### ORB-SLAM3 Library
-Make sure ORB-SLAM3 is built:
+## Building Instructions
+
+### Step 1: Navigate to Project Directory
 ```bash
-cd ~/Projects/ORB_SLAM3
+cd /home/cesar/Projects/ORB_SLAM3
+```
+
+### Step 2: Clean Previous Builds (if any)
+```bash
+# Remove any previous build artifacts
+rm -rf build/ lib/
+rm -rf ros2_ws/build/ ros2_ws/install/ ros2_ws/log/
+
+# Clean third-party builds
+sudo rm -rf Thirdparty/*/build/
+
+# Remove any local Pangolin directory (we use system Pangolin)
+rm -rf Pangolin/
+```
+
+### Step 3: Setup Environment for System Pangolin
+```bash
+# Set CMAKE_PREFIX_PATH to find system Pangolin from ROS2
+export CMAKE_PREFIX_PATH="/opt/ros/jazzy:$CMAKE_PREFIX_PATH"
+```
+
+### Step 4: Build ORB_SLAM3 Main Library
+```bash
+# Ensure build script won't download Pangolin (already modified)
+# The build.sh has been modified to use system Pangolin instead of downloading
+
+# Build the main ORB_SLAM3 library
 ./build.sh
 ```
 
-## Building
+**Expected Output:** 
+- Build should complete successfully with some warnings
+- `libORB_SLAM3.so` should be created in the `lib/` directory
+- Third-party libraries (DBoW2, g2o) will be built automatically
 
-### Setup ROS2 Workspace
+### Step 5: Extract Vocabulary File (if needed)
 ```bash
-# Create a ROS2 workspace if you don't have one
-mkdir -p ~/ros2_ws/src
-cd ~/ros2_ws/src
-
-# Symlink this package
-ln -s ~/Projects/ORB_SLAM3/ROS2 orb_slam3_ros2
-
-cd ~/ros2_ws
+cd Vocabulary/
+# Check if vocabulary file exists
+if [ ! -f "ORBvoc.txt" ] || [ ! -s "ORBvoc.txt" ]; then
+    echo "Extracting vocabulary file..."
+    tar -xzf ORBvoc.txt.tar.gz
+fi
+cd ..
 ```
 
-### Build the Package
+### Step 6: Build ROS2 Package
 ```bash
-# Source ROS2
-source /opt/ros/humble/setup.bash
+cd ros2_ws/
 
-# Build
+# Source ROS2 environment
+source /opt/ros/jazzy/setup.bash
+
+# Build the ROS2 package
 colcon build --packages-select orb_slam3_ros2
 
-# Source the workspace
+# Source the built package
 source install/setup.bash
+```
+
+**Expected Output:**
+- Package should build successfully with warnings (deprecation warnings are normal)
+- Build summary should show "1 package finished"
+
+## Running Instructions
+
+### Step 1: Setup Environment
+```bash
+cd /home/cesar/Projects/ORB_SLAM3/ros2_ws
+
+# Source ROS2 environment
+source /opt/ros/jazzy/setup.bash
+
+# Source the built package
+source install/setup.bash
+
+# Set library path for ORB_SLAM3
+export LD_LIBRARY_PATH=/home/cesar/Projects/ORB_SLAM3/lib:$LD_LIBRARY_PATH
+```
+
+### Step 2: Run the Monocular SLAM Node
+
+**With default parameters (recommended):**
+```bash
+ros2 run orb_slam3_ros2 mono --ros-args --params-file /home/cesar/Projects/ORB_SLAM3/ROS2/config/params.yaml
+```
+
+**With custom camera (USB camera example):**
+```bash
+ros2 run orb_slam3_ros2 mono --ros-args --params-file /home/cesar/Projects/ORB_SLAM3/ROS2/config/usb_cam_params.yaml
+```
+
+**With custom camera (RealSense example):**
+```bash
+ros2 run orb_slam3_ros2 mono --ros-args --params-file /home/cesar/Projects/ORB_SLAM3/ROS2/config/realsense_params.yaml
+```
+
+**Override specific parameters:**
+```bash
+ros2 run orb_slam3_ros2 mono --ros-args \
+    --params-file /home/cesar/Projects/ORB_SLAM3/ROS2/config/params.yaml \
+    -p image_topic:=/my_camera/image_raw \
+    -p use_viewer:=false
+```
+
+### Step 3: Verify Node is Running
+The node should start successfully and display:
+```
+[INFO] [timestamp] [orb_slam3_mono]: === ORB-SLAM3 Configuration ===
+[INFO] [timestamp] [orb_slam3_mono]: Vocabulary: /home/cesar/Projects/ORB_SLAM3/Vocabulary/ORBvoc.txt
+[INFO] [timestamp] [orb_slam3_mono]: Settings: /home/cesar/Projects/ORB_SLAM3/ROS2/config/webcam.yaml
+[INFO] [timestamp] [orb_slam3_mono]: === ROS2 Parameters ===
+[INFO] [timestamp] [orb_slam3_mono]: Image topic: /camera1/image_raw
+[INFO] [timestamp] [orb_slam3_mono]: ORB-SLAM3 initialized!
+[INFO] [timestamp] [orb_slam3_mono]: Monocular SLAM node ready!
+Starting the Viewer
 ```
 
 ## Configuration
 
-### ROS2 Parameters
+### ROS2 Parameters File
 
-The node can be configured via parameters in `config/params.yaml`:
+All configuration is now done through ROS2 parameter files located in `/home/cesar/Projects/ORB_SLAM3/ROS2/config/`:
+
+**Available parameter files:**
+- `params.yaml` - Default configuration for generic camera
+- `usb_cam_params.yaml` - Configuration for USB cameras
+- `realsense_params.yaml` - Configuration for Intel RealSense cameras
+
+**Parameters explained:**
 
 ```yaml
 orb_slam3_mono:
   ros__parameters:
-    # Topic names
-    image_topic: "camera/image_raw"
-    camera_info_topic: "camera/camera_info"
-    pose_topic: "orb_slam3/camera_pose"
-    path_topic: "orb_slam3/camera_path"
+    # File paths
+    vocabulary_path: "/path/to/ORBvoc.txt"        # ORB vocabulary file
+    settings_path: "/path/to/camera_config.yaml"  # Camera calibration file
+    use_viewer: true                               # Enable/disable Pangolin viewer
+    
+    # Topic configuration
+    image_topic: "/camera1/image_raw"             # Input image topic
+    pose_topic: "orb_slam3/camera_pose"           # Output pose topic
+    path_topic: "orb_slam3/camera_path"           # Output path topic
     
     # Frame IDs
-    world_frame_id: "world"
-    camera_frame_id: "camera"
+    world_frame_id: "world"                       # World/map frame
+    camera_frame_id: "camera"                     # Camera frame
     
-    # Publisher settings
-    queue_size: 10
-    publish_tf: true
+    # Settings
+    queue_size: 10                                # Subscriber queue size
+    publish_tf: true                              # Publish TF transforms
 ```
 
-### Camera Calibration
+### Customizing for Your Camera
 
-Camera intrinsics can be provided in two ways:
+1. **Copy an existing parameter file:**
+   ```bash
+   cp /home/cesar/Projects/ORB_SLAM3/ROS2/config/params.yaml \
+      /home/cesar/Projects/ORB_SLAM3/ROS2/config/my_camera_params.yaml
+   ```
 
-1. **Via camera_info topic** (recommended for ROS2):
-   - The node subscribes to `/camera/camera_info`
-   - Most ROS2 camera drivers publish this automatically
-   - Intrinsics are logged when first received
+2. **Edit the image topic to match your camera:**
+   ```yaml
+   image_topic: "/my_camera/image_raw"  # Change this to your camera's topic
+   ```
 
-2. **Via ORB-SLAM3 config file** (`config/webcam.yaml`):
-   - Traditional ORB-SLAM3 YAML format
-   - Required for ORB feature extraction parameters
+3. **Run with your custom parameters:**
+   ```bash
+   ros2 run orb_slam3_ros2 mono --ros-args \
+       --params-file /home/cesar/Projects/ORB_SLAM3/ROS2/config/my_camera_params.yaml
+   ```
 
-## Usage
+### Camera Calibration Settings
 
-### Monocular with Webcam
-
-**Launch with default settings:**
-```bash
-source ~/ros2_ws/install/setup.bash
-ros2 launch orb_slam3_ros2 mono_webcam.launch.py
-```
-
-**Launch with custom parameters:**
-```bash
-ros2 launch orb_slam3_ros2 mono_webcam.launch.py \
-  params:=/path/to/custom_params.yaml \
-  vocabulary:=/path/to/vocabulary.txt \
-  settings:=/path/to/camera_settings.yaml \
-  use_viewer:=true
-```
-
-**Run node separately:**
-```bash
-ros2 run orb_slam3_ros2 mono \
-  ~/Projects/ORB_SLAM3/Vocabulary/ORBvoc.txt \
-  ~/ros2_ws/src/orb_slam3_ros2/config/webcam.yaml \
-  true \
-  --ros-args --params-file ~/ros2_ws/src/orb_slam3_ros2/config/params.yaml
-```
-
-## Topics
-
-### Subscribed Topics
-
-- `/camera/image_raw` (sensor_msgs/Image) - Monocular camera input
-- `/camera/camera_info` (sensor_msgs/CameraInfo) - Camera intrinsics (optional, informational)
-
-### Published Topics
-
-- `/orb_slam3/camera_pose` (geometry_msgs/PoseStamped) - Current camera pose in world frame
-- `/orb_slam3/camera_path` (nav_msgs/Path) - Full trajectory path
-- `/tf` - Transform from `world` to `camera` frame (if `publish_tf` is enabled)
-
-**Note:** Topic names can be customized via ROS2 parameters in `config/params.yaml`.
-
-## Visualization
-
-### RViz2
-```bash
-ros2 run rviz2 rviz2
-```
-
-Add these displays:
-1. **Path**: Topic `/orb_slam3/camera_path`, Fixed Frame `world`
-2. **PoseStamped**: Topic `/orb_slam3/camera_pose`
-3. **TF**: Show camera frame
-
-### Pangolin Viewer
-Set the third argument to `true` when running nodes (default):
-```bash
-ros2 run orb_slam3_ros2 mono <vocab> <settings> true
-```
+Edit the camera calibration YAML files (e.g., `webcam.yaml`) to modify:
+- Camera intrinsic parameters (fx, fy, cx, cy)
+- Distortion coefficients (k1, k2, p1, p2, k3)
+- Image resolution
+- ORB feature extraction parameters
 
 ## Configuration
 
-Camera calibration files should be in YAML format. Example in `config/webcam.yaml`.
+### Camera Configuration
+Edit `/home/cesar/Projects/ORB_SLAM3/ROS2/config/webcam.yaml` or `params.yaml` to modify:
+- Camera intrinsic parameters (fx, fy, cx, cy)
+- Distortion coefficients
+- Image resolution
+- ORB feature extraction parameters
 
-### Important Parameters
+### ROS2 Topics
+The node subscribes to:
+- `/camera1/image_raw` (sensor_msgs/Image) - Camera images
 
-```yaml
-Camera.type: "PinHole"
-Camera.fx: 500.0      # Focal length x
-Camera.fy: 500.0      # Focal length y
-Camera.cx: 320.0      # Principal point x
-Camera.cy: 240.0      # Principal point y
-Camera.k1: 0.0        # Radial distortion k1
-Camera.k2: 0.0        # Radial distortion k2
-Camera.p1: 0.0        # Tangential distortion p1
-Camera.p2: 0.0        # Tangential distortion p2
+The node publishes:
+- `orb_slam3/camera_pose` (geometry_msgs/PoseStamped) - Camera pose
+- `orb_slam3/camera_path` (nav_msgs/Path) - Camera trajectory
 
-Camera.width: 640
-Camera.height: 480
-Camera.fps: 30.0
-```
+## Testing with Camera Data
 
-**Important:** Calibrate your camera for accurate results!
-
-## Camera Calibration
-
-Use ROS2 camera calibration:
+### Option 1: Use USB Camera
 ```bash
-ros2 run camera_calibration cameracalibrator \
-  --size 8x6 --square 0.025 \
-  image:=/camera/image_raw camera:=/camera
+# In a new terminal, install and run usb_cam
+sudo apt install ros-jazzy-usb-cam
+ros2 run usb_cam usb_cam_node_exe --ros-args -p video_device:=/dev/video0 -p image_topic:=/camera1/image_raw
 ```
 
-Or use the OpenCV calibration tools.
+### Option 2: Publish Test Images
+```bash
+# Install image_tools for testing
+sudo apt install ros-jazzy-image-tools
 
-## Output Files
+# Publish test images (change topic name to match)
+ros2 run image_tools cam2image --ros-args -p topic:=/camera1/image_raw
+```
 
-When the node shuts down (Ctrl+C), it saves:
-- `CameraTrajectory.txt` - Full camera trajectory (TUM format)
-- `KeyFrameTrajectory.txt` - Keyframe trajectory (TUM format)
+### Option 3: Use Rosbag
+```bash
+# Play a recorded rosbag with camera data
+ros2 bag play your_camera_data.bag --remap /original_topic:=/camera1/image_raw
+```
+
+## Troubleshooting
+
+### Build Issues
+
+**Problem: "Pangolin not found"**
+```bash
+# Ensure ROS2 environment is sourced
+source /opt/ros/jazzy/setup.bash
+export CMAKE_PREFIX_PATH="/opt/ros/jazzy:$CMAKE_PREFIX_PATH"
+```
+
+**Problem: "libORB_SLAM3.so not found"**
+```bash
+# Add library path
+export LD_LIBRARY_PATH=/home/cesar/Projects/ORB_SLAM3/lib:$LD_LIBRARY_PATH
+```
+
+**Problem: CMake configuration errors**
+```bash
+# Clean and rebuild
+rm -rf build/ lib/ ros2_ws/build/ ros2_ws/install/
+# Then follow build steps again
+```
+
+### Runtime Issues
+
+**Problem: "Package 'orb_slam3_ros2' not found"**
+```bash
+# Make sure to source the built package
+cd /home/cesar/Projects/ORB_SLAM3/ros2_ws
+source install/setup.bash
+```
+
+**Problem: Node starts but no SLAM tracking**
+- Verify camera images are being published: `ros2 topic echo /camera1/image_raw`
+- Check camera calibration parameters in config file
+- Ensure sufficient lighting and texture in camera view
+
+### Performance Tips
+- Use a good camera with stable framerate
+- Ensure proper camera calibration
+- Provide sufficient texture and lighting for feature extraction
+- Start with slow, smooth camera movements for initialization
+
+## File Structure
+```
+ORB_SLAM3/
+├── build.sh                    # Main build script (modified for system Pangolin)
+├── CMakeLists.txt             # Main CMake configuration
+├── lib/                       # Built libraries
+│   └── libORB_SLAM3.so
+├── Vocabulary/                # ORB vocabulary
+│   └── ORBvoc.txt
+├── ROS2/                      # ROS2 package source
+│   ├── CMakeLists.txt         # ROS2 package CMake (modified)
+│   ├── package.xml
+│   ├── config/
+│   │   ├── params.yaml
+│   │   └── webcam.yaml
+│   └── src/
+│       └── monocular_node.cpp
+└── ros2_ws/                   # ROS2 workspace
+    ├── build/
+    ├── install/
+    └── src/
+        └── orb_slam3_ros2 -> ../ROS2/  # Symlink to ROS2 package
+```
+
+## Quick Reference
+
+### Complete Build Process
+```bash
+# 1. Clean and setup
+cd /home/cesar/Projects/ORB_SLAM3
+rm -rf build/ lib/ ros2_ws/build/ ros2_ws/install/ ros2_ws/log/
+sudo rm -rf Thirdparty/*/build/
+rm -rf Pangolin/
+source /opt/ros/jazzy/setup.bash
+export CMAKE_PREFIX_PATH="/opt/ros/jazzy:$CMAKE_PREFIX_PATH"
+
+# 2. Build main library
+./build.sh
+
+# 3. Extract vocabulary (if needed)
+cd Vocabulary/
+if [ ! -f "ORBvoc.txt" ] || [ ! -s "ORBvoc.txt" ]; then
+    tar -xzf ORBvoc.txt.tar.gz
+fi
+cd ..
+
+# 4. Build ROS2 package
+cd ros2_ws/
+source /opt/ros/jazzy/setup.bash
+colcon build --packages-select orb_slam3_ros2
+```
+
+### Run the Node
+```bash
+cd /home/cesar/Projects/ORB_SLAM3/ros2_ws
+source /opt/ros/jazzy/setup.bash
+source install/setup.bash
+export LD_LIBRARY_PATH=/home/cesar/Projects/ORB_SLAM3/lib:$LD_LIBRARY_PATH
+
+# Run with default parameters
+ros2 run orb_slam3_ros2 mono --ros-args \
+    --params-file /home/cesar/Projects/ORB_SLAM3/ROS2/config/params.yaml
+
+# Or with custom camera settings
+ros2 run orb_slam3_ros2 mono --ros-args \
+    --params-file /home/cesar/Projects/ORB_SLAM3/ROS2/config/usb_cam_params.yaml
+```
 
 ## Example: Testing with Webcam
 

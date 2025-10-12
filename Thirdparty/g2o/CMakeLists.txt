@@ -176,3 +176,45 @@ g2o/stuff/string_tools.cpp
 g2o/stuff/property.cpp       
 g2o/stuff/property.h       
 )
+
+# Include GNUInstallDirs for standard installation paths
+include(GNUInstallDirs)
+
+# Install the g2o library
+install(TARGETS g2o
+        EXPORT g2oTargets
+        LIBRARY DESTINATION ${CMAKE_INSTALL_LIBDIR}
+        ARCHIVE DESTINATION ${CMAKE_INSTALL_LIBDIR}
+        RUNTIME DESTINATION ${CMAKE_INSTALL_BINDIR}
+        INCLUDES DESTINATION ${CMAKE_INSTALL_INCLUDEDIR})
+
+# Install header files
+install(DIRECTORY g2o/
+        DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}/g2o
+        FILES_MATCHING PATTERN "*.h" PATTERN "*.hpp")
+
+# Install the generated config.h
+install(FILES ${g2o_SOURCE_DIR}/config.h
+        DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}/g2o)
+
+# Export targets for other projects to use
+install(EXPORT g2oTargets
+        FILE g2oTargets.cmake
+        NAMESPACE g2o::
+        DESTINATION ${CMAKE_INSTALL_LIBDIR}/cmake/g2o)
+
+# Create and install package config files
+include(CMakePackageConfigHelpers)
+write_basic_package_version_file(
+    g2oConfigVersion.cmake
+    VERSION 1.0.0
+    COMPATIBILITY SameMajorVersion)
+
+configure_package_config_file(
+    "${CMAKE_CURRENT_SOURCE_DIR}/g2oConfig.cmake.in"
+    "${CMAKE_CURRENT_BINARY_DIR}/g2oConfig.cmake"
+    INSTALL_DESTINATION ${CMAKE_INSTALL_LIBDIR}/cmake/g2o)
+
+install(FILES "${CMAKE_CURRENT_BINARY_DIR}/g2oConfig.cmake"
+              "${CMAKE_CURRENT_BINARY_DIR}/g2oConfigVersion.cmake"
+        DESTINATION ${CMAKE_INSTALL_LIBDIR}/cmake/g2o)

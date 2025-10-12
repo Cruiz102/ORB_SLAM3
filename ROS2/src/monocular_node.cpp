@@ -1,6 +1,6 @@
 /**
  * ROS2 Monocular Node for ORB-SLAM3
- * 
+ *
  * Subscribes to camera images and publishes:
  * - Camera pose (geometry_msgs/PoseStamped)
  * - Camera trajectory path (nav_msgs/Path)
@@ -15,12 +15,22 @@
 
 #include <rclcpp/rclcpp.hpp>
 #include <sensor_msgs/msg/image.hpp>
+#include <sensor_msgs/image_encodings.hpp>
 #include <geometry_msgs/msg/pose_stamped.hpp>
 #include <nav_msgs/msg/path.hpp>
+#include <builtin_interfaces/msg/time.hpp>
+
 #include <tf2_ros/transform_broadcaster.h>
 #include <tf2/LinearMath/Quaternion.h>
 #include <tf2_geometry_msgs/tf2_geometry_msgs.hpp>
-#include <cv_bridge/cv_bridge.h>
+
+#include <cv_bridge/cv_bridge.hpp>
+#include <opencv2/opencv.hpp>
+
+#include <Eigen/Core>
+#include <Eigen/Geometry>
+
+#include <sophus/se3.hpp>        // Sophus::SE3f
 
 #include "System.h"
 
@@ -29,20 +39,39 @@ using namespace std;
 class MonocularSlamNode : public rclcpp::Node
 {
 public:
-    MonocularSlamNode(const std::string& vocabulary_path, 
-                      const std::string& settings_path,
-                      bool use_viewer = true)
+    MonocularSlamNode()
     : Node("orb_slam3_mono")
     {
-        // Declare and get ROS parameters
-        this->declare_parameter<std::string>("image_topic", "camera/image_raw");
+        // Declare and get ROS parameters for file paths
+        this->declare_parameter<std::string>("vocabulary_path", "");
+        this->declare_parameter<std::string>("settings_path", "");
+        this->declare_parameter<bool>("use_viewer", true);
+        
+        // Declare and get ROS parameters for topics and frames
+        this->declare_parameter<std::string>("image_topic", "/camera1/image_raw");
         this->declare_parameter<std::string>("pose_topic", "orb_slam3/camera_pose");
         this->declare_parameter<std::string>("path_topic", "orb_slam3/camera_path");
         this->declare_parameter<std::string>("world_frame_id", "world");
         this->declare_parameter<std::string>("camera_frame_id", "camera");
         this->declare_parameter<int>("queue_size", 10);
         this->declare_parameter<bool>("publish_tf", true);
-        
+
+        // Get file paths
+        std::string vocabulary_path = this->get_parameter("vocabulary_path").as_string();
+        std::string settings_path = this->get_parameter("settings_path").as_string();
+        bool use_viewer = this->get_parameter("use_viewer").as_bool();
+
+        // Validate required parameters
+        if (vocabulary_path.empty()) {
+            RCLCPP_ERROR(this->get_logger(), "Parameter 'vocabulary_path' is required!");
+            throw std::runtime_error("Missing vocabulary_path parameter");
+        }
+        if (settings_path.empty()) {
+            RCLCPP_ERROR(this->get_logger(), "Parameter 'settings_path' is required!");
+            throw std::runtime_error("Missing settings_path parameter");
+        }
+
+        // Get topic and frame parameters
         std::string image_topic = this->get_parameter("image_topic").as_string();
         std::string pose_topic = this->get_parameter("pose_topic").as_string();
         std::string path_topic = this->get_parameter("path_topic").as_string();
@@ -51,6 +80,10 @@ public:
         int queue_size = this->get_parameter("queue_size").as_int();
         publish_tf_ = this->get_parameter("publish_tf").as_bool();
 
+        RCLCPP_INFO(this->get_logger(), "=== ORB-SLAM3 Configuration ===");
+        RCLCPP_INFO(this->get_logger(), "Vocabulary: %s", vocabulary_path.c_str());
+        RCLCPP_INFO(this->get_logger(), "Settings: %s", settings_path.c_str());
+        RCLCPP_INFO(this->get_logger(), "Use viewer: %s", use_viewer ? "true" : "false");
         RCLCPP_INFO(this->get_logger(), "=== ROS2 Parameters ===");
         RCLCPP_INFO(this->get_logger(), "Image topic: %s", image_topic.c_str());
         RCLCPP_INFO(this->get_logger(), "Pose topic: %s", pose_topic.c_str());
@@ -96,7 +129,7 @@ public:
         if (slam_system_) {
             RCLCPP_INFO(this->get_logger(), "Shutting down ORB-SLAM3...");
             slam_system_->Shutdown();
-            
+
             // Save trajectory
             slam_system_->SaveKeyFrameTrajectoryTUM("KeyFrameTrajectory.txt");
             slam_system_->SaveTrajectoryTUM("CameraTrajectory.txt");
@@ -107,7 +140,7 @@ public:
 private:
     void imageCallback(const sensor_msgs::msg::Image::SharedPtr msg)
     {
-        // Convert ROS image to OpenCV
+        // Convert ROS image to OpenCV (expect MONO8)
         cv_bridge::CvImagePtr cv_ptr;
         try {
             cv_ptr = cv_bridge::toCvCopy(msg, sensor_msgs::image_encodings::MONO8);
@@ -116,16 +149,33 @@ private:
             return;
         }
 
-        // Get timestamp
+        // Get timestamp (seconds as double)
         double timestamp = msg->header.stamp.sec + msg->header.stamp.nanosec * 1e-9;
 
-        // Track frame
-        cv::Mat Tcw = slam_system_->TrackMonocular(cv_ptr->image, timestamp);
+        // --- FIX: TrackMonocular returns Sophus::SE3f in ORB-SLAM3 ---
+        Sophus::SE3f Tcw_se3 = slam_system_->TrackMonocular(cv_ptr->image, timestamp);
+
+        // Heuristic validity check: skip if identity (tracking failed)
+        const float eps = 1e-6f;
+        if (Tcw_se3.translation().norm() < eps &&
+            Tcw_se3.rotationMatrix().isApprox(Eigen::Matrix3f::Identity(), 1e-6f)) {
+            // No valid pose -> skip publishing
+            return;
+        }
+
+        // Convert Sophus::SE3f -> 4x4 cv::Mat (float)
+        cv::Mat Tcw = cv::Mat::eye(4, 4, CV_32F);
+        Eigen::Matrix3f R = Tcw_se3.rotationMatrix();
+        Eigen::Vector3f t = Tcw_se3.translation();
+        for (int r = 0; r < 3; ++r)
+            for (int c = 0; c < 3; ++c)
+                Tcw.at<float>(r, c) = R(r, c);
+        Tcw.at<float>(0, 3) = t(0);
+        Tcw.at<float>(1, 3) = t(1);
+        Tcw.at<float>(2, 3) = t(2);
 
         // Publish pose if tracking successful
-        if (!Tcw.empty()) {
-            publishPose(Tcw, msg->header.stamp);
-        }
+        publishPose(Tcw, msg->header.stamp);
     }
 
     void publishPose(const cv::Mat& Tcw, const builtin_interfaces::msg::Time& timestamp)
@@ -149,7 +199,7 @@ private:
         rotation_matrix << Rwc.at<float>(0,0), Rwc.at<float>(0,1), Rwc.at<float>(0,2),
                           Rwc.at<float>(1,0), Rwc.at<float>(1,1), Rwc.at<float>(1,2),
                           Rwc.at<float>(2,0), Rwc.at<float>(2,1), Rwc.at<float>(2,2);
-        
+
         Eigen::Quaternionf q(rotation_matrix);
         pose_msg.pose.orientation.x = q.x();
         pose_msg.pose.orientation.y = q.y();
@@ -174,7 +224,7 @@ private:
             transform.transform.translation.y = twc.at<float>(1);
             transform.transform.translation.z = twc.at<float>(2);
             transform.transform.rotation = pose_msg.pose.orientation;
-            
+
             tf_broadcaster_->sendTransform(transform);
         }
     }
@@ -185,7 +235,7 @@ private:
     rclcpp::Publisher<nav_msgs::msg::Path>::SharedPtr path_pub_;
     std::shared_ptr<tf2_ros::TransformBroadcaster> tf_broadcaster_;
     nav_msgs::msg::Path path_msg_;
-    
+
     // Parameters
     std::string world_frame_id_;
     std::string camera_frame_id_;
@@ -196,26 +246,16 @@ int main(int argc, char** argv)
 {
     rclcpp::init(argc, argv);
 
-    if (argc < 3) {
-        RCLCPP_ERROR(rclcpp::get_logger("rclcpp"), 
-                     "Usage: ros2 run orb_slam3_ros2 mono <vocabulary> <settings> [use_viewer]");
+    try {
+        auto node = std::make_shared<MonocularSlamNode>();
+        RCLCPP_INFO(node->get_logger(), "Starting monocular SLAM node...");
+        rclcpp::spin(node);
+    } catch (const std::exception& e) {
+        RCLCPP_ERROR(rclcpp::get_logger("rclcpp"), "Exception: %s", e.what());
+        rclcpp::shutdown();
         return 1;
     }
 
-    std::string vocabulary_path = argv[1];
-    std::string settings_path = argv[2];
-    bool use_viewer = true;
-    
-    if (argc >= 4) {
-        use_viewer = (std::string(argv[3]) == "true");
-    }
-
-    auto node = std::make_shared<MonocularSlamNode>(vocabulary_path, settings_path, use_viewer);
-    
-    RCLCPP_INFO(node->get_logger(), "Starting monocular SLAM node...");
-    
-    rclcpp::spin(node);
     rclcpp::shutdown();
-
     return 0;
 }

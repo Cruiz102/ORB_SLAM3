@@ -22,6 +22,14 @@ set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wno-sign-compare")
 set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wno-unused-variable")
 set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wno-deprecated")
 
+# Disable RPATH modification on install
+set(CMAKE_SKIP_RPATH FALSE)
+set(CMAKE_SKIP_INSTALL_RPATH TRUE)
+set(CMAKE_BUILD_WITH_INSTALL_RPATH FALSE)
+set(CMAKE_INSTALL_RPATH "")
+set(CMAKE_INSTALL_RPATH_USE_LINK_PATH FALSE)
+
+
 # Check C++14 support
 include(CheckCXXCompilerFlag)
 CHECK_CXX_COMPILER_FLAG("-std=c++14" COMPILER_SUPPORTS_CXX14)
@@ -33,12 +41,10 @@ else()
    message(FATAL_ERROR "The compiler ${CMAKE_CXX_COMPILER} has no C++14 support. Please use a different C++ compiler.")
 endif()
 
-LIST(APPEND CMAKE_MODULE_PATH ${PROJECT_SOURCE_DIR}/cmake_modules)
 
 # Find required packages
 find_package(OpenCV 4.4 REQUIRED)
 MESSAGE("OPENCV VERSION: ${OpenCV_VERSION}")
-
 find_package(Eigen3 3.1.0 REQUIRED)
 find_package(Pangolin REQUIRED)
 
@@ -52,7 +58,7 @@ ${EIGEN3_INCLUDE_DIR}
 ${Pangolin_INCLUDE_DIRS}
 )
 
-# Set output directory for library
+# Set output directry for library
 set(CMAKE_LIBRARY_OUTPUT_DIRECTORY ${PROJECT_SOURCE_DIR}/lib)
 
 # Build ORB_SLAM3 shared library
@@ -100,3 +106,52 @@ ${PROJECT_SOURCE_DIR}/Thirdparty/g2o/lib/libg2o.so
 -lboost_serialization
 -lcrypto
 )
+
+
+
+
+
+# ============================================================
+# =============== INSTALLATION RULES BEGIN ===================
+# ============================================================
+
+# include standard install dir variables (lib, include, bin, etc.)
+include(GNUInstallDirs)
+
+# Install the shared library
+install(TARGETS ${PROJECT_NAME}
+        EXPORT ORB_SLAM3Targets
+        LIBRARY DESTINATION ${CMAKE_INSTALL_LIBDIR}
+        ARCHIVE DESTINATION ${CMAKE_INSTALL_LIBDIR}
+        RUNTIME DESTINATION ${CMAKE_INSTALL_BINDIR})
+
+# Install all public headers
+install(DIRECTORY ${PROJECT_SOURCE_DIR}/include/
+        DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}/ORB_SLAM3)
+
+# Export target info (for find_package)
+install(EXPORT ORB_SLAM3Targets
+        FILE ORB_SLAM3Targets.cmake
+        NAMESPACE ORB_SLAM3::
+        DESTINATION ${CMAKE_INSTALL_LIBDIR}/cmake/ORB_SLAM3)
+
+# Optional: install CMake config files for find_package()
+include(CMakePackageConfigHelpers)
+configure_package_config_file(
+  ${CMAKE_CURRENT_SOURCE_DIR}/cmake/ORB_SLAM3Config.cmake.in
+  ${CMAKE_CURRENT_BINARY_DIR}/ORB_SLAM3Config.cmake
+  INSTALL_DESTINATION ${CMAKE_INSTALL_LIBDIR}/cmake/ORB_SLAM3
+)
+write_basic_package_version_file(
+  ${CMAKE_CURRENT_BINARY_DIR}/ORB_SLAM3ConfigVersion.cmake
+  VERSION 1.0.0
+  COMPATIBILITY AnyNewerVersion
+)
+install(FILES
+  ${CMAKE_CURRENT_BINARY_DIR}/ORB_SLAM3Config.cmake
+  ${CMAKE_CURRENT_BINARY_DIR}/ORB_SLAM3ConfigVersion.cmake
+  DESTINATION ${CMAKE_INSTALL_LIBDIR}/cmake/ORB_SLAM3)
+
+# ============================================================
+# =============== INSTALLATION RULES END =====================
+# ============================================================

@@ -5,6 +5,7 @@ mkdir build
 cd build
 cmake .. -DCMAKE_BUILD_TYPE=Release
 make -j
+make install
 
 cd ../../g2o
 
@@ -14,6 +15,7 @@ mkdir build
 cd build
 cmake .. -DCMAKE_BUILD_TYPE=Release
 make -j
+make install
 
 cd ../../Sophus
 
@@ -23,6 +25,7 @@ mkdir build
 cd build
 cmake .. -DCMAKE_BUILD_TYPE=Release
 make -j
+make install
 
 cd ../../../
 
@@ -34,7 +37,10 @@ cd ..
 
 echo "Configuring and building ORB_SLAM3 ..."
 
+# Pangolin is now provided by system (ROS2)
+
 mkdir build
 cd build
 cmake .. -DCMAKE_BUILD_TYPE=Debug -DCMAKE_EXPORT_TYPE=ON
 make -j4
+make install

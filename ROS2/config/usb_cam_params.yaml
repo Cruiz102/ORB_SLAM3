@@ -1,4 +1,4 @@
-# ROS2 Parameters for ORB-SLAM3 Monocular Node
+# ROS2 Parameters for ORB-SLAM3 with USB Camera
 
 orb_slam3_mono:
   ros__parameters:
@@ -7,14 +7,14 @@ orb_slam3_mono:
     settings_path: "/home/cesar/Projects/ORB_SLAM3/ROS2/config/webcam.yaml"
     use_viewer: true
     
-    # Topic names
+    # Topic names - USB camera typical topics
     image_topic: "/camera1/image_raw"
     pose_topic: "orb_slam3/camera_pose"
     path_topic: "orb_slam3/camera_path"
     
     # Frame IDs
     world_frame_id: "world"
-    camera_frame_id: "camera"
+    camera_frame_id: "usb_cam"
     
     # Publisher settings
     queue_size: 10
