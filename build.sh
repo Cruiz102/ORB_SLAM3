@@ -15,7 +15,7 @@ mkdir build
 cd build
 cmake .. -DCMAKE_BUILD_TYPE=Release
 make -j
-make install
+sudo make install
 
 cd ../../Sophus
 
@@ -25,7 +25,7 @@ mkdir build
 cd build
 cmake .. -DCMAKE_BUILD_TYPE=Release
 make -j
-make install
+sudo make install
 
 cd ../../../
 
@@ -37,10 +37,14 @@ cd ..
 
 echo "Configuring and building ORB_SLAM3 ..."
 
-# Pangolin is now provided by system (ROS2)
 
 mkdir build
 cd build
-cmake .. -DCMAKE_BUILD_TYPE=Debug -DCMAKE_EXPORT_TYPE=ON
+# Source ROS2 environment and set include paths for Pangolin
+source /opt/ros/jazzy/setup.bash
+cmake .. -DCMAKE_BUILD_TYPE=Debug \
+         -DCMAKE_EXPORT_TYPE=ON \
+         -DCMAKE_PREFIX_PATH="/opt/ros/jazzy" \
+         -DCMAKE_CXX_FLAGS="-I/opt/ros/jazzy/include"
 make -j4
-make install
+sudo make install
