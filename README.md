@@ -58,35 +58,6 @@ sudo apt install libopencv-dev libeigen3-dev libboost-all-dev libssl-dev
 sudo apt install python3-opencv python3-numpy python3-yaml
 ```
 
-#### ROS2 Jazzy (Optional - for ROS2 Integration)
-For Ubuntu 24.04 Noble:
-```bash
-# Enable Ubuntu Universe repository
-sudo apt install software-properties-common
-sudo add-apt-repository universe
-
-# Add ROS2 GPG key
-sudo apt update && sudo apt install curl -y
-sudo curl -sSL https://raw.githubusercontent.com/ros/rosdistro/master/ros.key -o /usr/share/keyrings/ros-archive-keyring.gpg
-
-# Add repository to sources list
-echo "deb [arch=$(dpkg --print-architecture) signed-by=/usr/share/keyrings/ros-archive-keyring.gpg] http://packages.ros.org/ros2/ubuntu $(. /etc/os-release && echo $UBUNTU_CODENAME) main" | sudo tee /etc/apt/sources.list.d/ros2.list > /dev/null
-
-# Install ROS2 Jazzy
-sudo apt update
-sudo apt install ros-jazzy-desktop
-
-# Install ROS2 development tools
-sudo apt install ros-dev-tools
-
-# Install additional dependencies for ROS2 wrapper
-sudo apt install ros-jazzy-cv-bridge ros-jazzy-vision-opencv ros-jazzy-image-transport
-
-# Source ROS2 (add to ~/.bashrc for permanent)
-source /opt/ros/jazzy/setup.bash
-```
-
-
 ## Building the Library
 
 Clone the repository:
@@ -97,6 +68,13 @@ cd ORB_SLAM3
 
 Build everything (third-party libraries + ORB-SLAM3):
 ```bash
+
+
+cd Vocabulary
+tar -xf ORBvoc.txt.tar.gz
+cd ..
+
+
 chmod +x build.sh
 ./build.sh
 ```

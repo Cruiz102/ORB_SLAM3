@@ -48,14 +48,21 @@ MESSAGE("OPENCV VERSION: ${OpenCV_VERSION}")
 find_package(Eigen3 3.1.0 REQUIRED)
 find_package(Pangolin REQUIRED)
 
+# Build g2o third-party library
+add_subdirectory(Thirdparty/g2o)
+add_subdirectory(Thirdparty/DBoW2)
+add_subdirectory(Thirdparty/Sophus)
+
+
 # Include directories
 include_directories(
 ${PROJECT_SOURCE_DIR}
 ${PROJECT_SOURCE_DIR}/include
 ${PROJECT_SOURCE_DIR}/include/CameraModels
 ${PROJECT_SOURCE_DIR}/Thirdparty/Sophus
-${EIGEN3_INCLUDE_DIR}
+${PROJECT_SOURCE_DIR}/Thirdparty/DBoW2
 ${Pangolin_INCLUDE_DIRS}
+${EIGEN3_INCLUDE_DIR}
 )
 
 # Set output directry for library
@@ -93,8 +100,7 @@ src/Config.cc
 src/Settings.cc
 )
 
-# Build g2o third-party library
-add_subdirectory(Thirdparty/g2o)
+
 
 # Link libraries
 target_link_libraries(${PROJECT_NAME}
